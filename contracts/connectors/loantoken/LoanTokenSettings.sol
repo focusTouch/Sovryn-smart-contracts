@@ -37,7 +37,7 @@ contract LoanTokenSettings is AdvancedTokenStorage {
         symbol = _symbol;
     }
 
-    function recoverEther(
+    function recoverBTC(
         address receiver,
         uint256 amount)
         public

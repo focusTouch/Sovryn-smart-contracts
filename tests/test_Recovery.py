@@ -29,6 +29,25 @@ def loanToken(LoanToken, LoanTokenLogicStandard, LoanTokenSettingsLowerAdmin, SU
     assert initial_total_supply == loanToken.totalSupply()
 
     return loanToken
+    
+@pytest.fixture(scope="module", autouse=True)
+def loanTokenWBTC(LoanToken, LoanTokenLogicWeth, LoanTokenSettingsLowerAdmin, SUSD, WETH, accounts, sovryn, Constants, priceFeeds, swapsImpl):
+
+    loanTokenLogic = accounts[0].deploy(LoanTokenLogicWeth)
+    # Deploying loan token using the loan logic as target for delegate calls
+    loanToken = accounts[0].deploy(LoanToken, loanTokenLogic.address, sovryn.address, WETH.address)
+    # Initialize loanTokenAddress
+    loanToken.initialize(WETH, "iWBTC", "iWBTC")
+    # setting the logic ABI for the loan token contract
+    loanToken = Contract.from_abi("loanToken", address=loanToken.address, abi=LoanTokenLogicWeth.abi, owner=accounts[0])
+
+    # loan token Price should be equals to initial price
+    assert loanToken.tokenPrice() == loanToken.initialPrice()
+    initial_total_supply = loanToken.totalSupply()
+    # loan token total supply should be zero
+    assert initial_total_supply == loanToken.totalSupply()
+
+    return loanToken
 
 
 
@@ -63,9 +82,9 @@ def test_recover_Susd(accounts, sovryn, loanToken, SUSD, loanTokenSettingsRecove
 '''
 1. Mint some tokens and transfer to the loanToken contract
 2. Test withdrawal of minted tokens
-3. Assure Balance of owner increased by the amount of minted tokens and balance of loanToken is 0
+3. Assure Balance of the receiver increased by the amount of minted tokens and balance of loanToken is 0
 '''
-def test_recover_Rbtc(accounts, sovryn, loanToken, RBTC, loanTokenSettingsRecovery, LoanToken, LoanTokenSettings):
+def test_recover_RbtcTokens(accounts, sovryn, loanToken, RBTC, loanTokenSettingsRecovery, LoanToken, LoanTokenSettings):
     localLoanToken = Contract.from_abi("loanToken", address=loanToken.address, abi=LoanToken.abi, owner=accounts[0])
     localLoanToken.setTarget(loanTokenSettingsRecovery.address)
     localLoanToken = Contract.from_abi("loanToken", address=loanToken.address, abi=LoanTokenSettings.abi, owner=accounts[0])
@@ -87,9 +106,15 @@ def test_recover_Rbtc(accounts, sovryn, loanToken, RBTC, loanTokenSettingsRecove
     
     
 '''
-//ether
-def test_recover_rbtc():
+Assure the contract does not allow to receive RBTC directly
+'''
+def test_send_Rbtc(accounts, loanToken):
+    amount = 1e17
+    with reverts():
+        accounts[0].transfer(loanToken.address, amount)
+     
 
 
-
+'''
+LoanTokenSettings.recoverBTC cannot be tested because there is no way to send RBTC to the smart contract and it remaining on the contract.
 '''
