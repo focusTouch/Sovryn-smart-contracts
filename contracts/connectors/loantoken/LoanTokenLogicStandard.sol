@@ -12,7 +12,7 @@ import "./interfaces/FeedsLike.sol";
 
 
 contract LoanTokenLogicStandard is AdvancedToken {
-    using SafeMath for uint256;
+    using SafeMathSovryn for uint256;
 
     // It is important to maintain the variables order so the delegate calls can access sovrynContractAddress and wrbtcTokenAddress
     address public sovrynContractAddress;
@@ -21,6 +21,12 @@ contract LoanTokenLogicStandard is AdvancedToken {
 
     uint256 public constant VERSION = 5;
     address internal constant arbitraryCaller = 0x000F400e6818158D541C3EBE45FE3AA0d47372FF;
+    address public earlyAccessToken;
+
+    modifier hasEarlyAccessToken() {
+        require(IERC20Sovryn(earlyAccessToken).balanceOf(msg.sender) > 0, "No early access tokens");
+        _;
+    }
 
     function()
         external
@@ -28,6 +34,11 @@ contract LoanTokenLogicStandard is AdvancedToken {
         revert("loan token logic - fallback not allowed");
     }
 
+    event SetEarlyAccessToken(
+        address indexed sender,
+        address indexed oldValue,
+        address indexed newValue
+    );
 
     /* Public functions */
 
@@ -36,6 +47,7 @@ contract LoanTokenLogicStandard is AdvancedToken {
         uint256 depositAmount)
         external
         nonReentrant
+        hasEarlyAccessToken
         returns (uint256 mintAmount)
     {
         return _mintToken(
@@ -147,6 +159,7 @@ contract LoanTokenLogicStandard is AdvancedToken {
         public
         payable
         nonReentrant                    //note: needs to be removed to allow flashloan use cases
+        hasEarlyAccessToken
         returns (uint256, uint256) // returns new principal and new collateral added to loan
     {
         require(withdrawAmount != 0, "6");
@@ -207,6 +220,7 @@ contract LoanTokenLogicStandard is AdvancedToken {
         public
         payable
         nonReentrant                    //note: needs to be removed to allow flashloan use cases
+        hasEarlyAccessToken
         returns (uint256, uint256) // returns new principal and new collateral added to trade
     {
         _checkPause();
@@ -563,7 +577,7 @@ contract LoanTokenLogicStandard is AdvancedToken {
         view
         returns (uint256)
     {
-        uint256 initialMargin = SafeMath.div(10**38, leverageAmount);
+        uint256 initialMargin = SafeMathSovryn.div(10**38, leverageAmount);
         return marketLiquidity()
             .mul(initialMargin)
             .div(_adjustValue(
@@ -797,7 +811,7 @@ contract LoanTokenLogicStandard is AdvancedToken {
         newBorrowAmount = borrowAmount
             .mul(10**18)
             .div(
-                SafeMath.sub(10**18,
+                SafeMathSovryn.sub(10**18,
                     interestRate
                         .mul(initialLoanDuration)
                         .mul(10**18)
@@ -858,7 +872,7 @@ contract LoanTokenLogicStandard is AdvancedToken {
         )))];
 
         // converting to initialMargin
-        leverageAmount = SafeMath.div(10**38, leverageAmount);
+        leverageAmount = SafeMathSovryn.div(10**38, leverageAmount);
             
         (sentAmounts[1], sentAmounts[4]) = ProtocolLike(sovrynContractAddress).borrowOrTradeFromPool.value(msgValue)( // newPrincipal, newCollateral
             loanParamsId,
@@ -938,7 +952,7 @@ contract LoanTokenLogicStandard is AdvancedToken {
     {
         _callOptionalReturn(
             token,
-            abi.encodeWithSelector(IERC20(token).transfer.selector, to, amount),
+            abi.encodeWithSelector(IERC20Sovryn(token).transfer.selector, to, amount),
             errorMsg
         );
     }
@@ -953,7 +967,7 @@ contract LoanTokenLogicStandard is AdvancedToken {
     {
         _callOptionalReturn(
             token,
-            abi.encodeWithSelector(IERC20(token).transferFrom.selector, from, to, amount),
+            abi.encodeWithSelector(IERC20Sovryn(token).transferFrom.selector, from, to, amount),
             errorMsg
         );
     }
@@ -977,7 +991,7 @@ contract LoanTokenLogicStandard is AdvancedToken {
         view
         returns (uint256)
     {
-        return IERC20(loanTokenAddress).balanceOf(address(this));
+        return IERC20Sovryn(loanTokenAddress).balanceOf(address(this));
     }
 
     /* Internal View functions */
@@ -1022,7 +1036,7 @@ contract LoanTokenLogicStandard is AdvancedToken {
         if (assetBorrow != 0 && assetSupply >= assetBorrow) {
             return _avgBorrowInterestRate(assetBorrow)
                 .mul(_utilizationRate(assetBorrow, assetSupply))
-                .mul(SafeMath.sub(10**20, ProtocolLike(sovrynContractAddress).lendingFeePercent()))
+                .mul(SafeMathSovryn.sub(10**20, ProtocolLike(sovrynContractAddress).lendingFeePercent()))
                 .div(10**40);
         }
     }
@@ -1087,7 +1101,7 @@ contract LoanTokenLogicStandard is AdvancedToken {
                 .div(100);
 
             nextRate = utilRate
-                .mul(SafeMath.sub(100 ether, maxRate))
+                .mul(SafeMathSovryn.sub(100 ether, maxRate))
                 .div(10 ether)
                 .add(maxRate);
         } else {
@@ -1122,7 +1136,7 @@ contract LoanTokenLogicStandard is AdvancedToken {
         );
 
         interestUnPaid = interestUnPaid
-            .mul(SafeMath.sub(10**20, interestFeePercent))
+            .mul(SafeMathSovryn.sub(10**20, interestFeePercent))
             .div(10**20);
     }
 
@@ -1133,7 +1147,7 @@ contract LoanTokenLogicStandard is AdvancedToken {
         view
         returns (uint256 borrowAmount, uint256 interestRate)
     {
-        uint256 initialMargin = SafeMath.div(10**38, leverageAmount);
+        uint256 initialMargin = SafeMathSovryn.div(10**38, leverageAmount);
 
         interestRate = _nextBorrowInterestRate2(
             depositAmount
@@ -1244,5 +1258,18 @@ contract LoanTokenLogicStandard is AdvancedToken {
         assembly {
             return(ptr, size)
         }
+    }
+
+    function setEarlyAccessToken(
+        address _earlyAccessTokenAddress)
+        public
+        onlyOwner
+    {
+        require(Address.isContract(_earlyAccessTokenAddress), "");
+
+        address oldEarlyAccessToken = earlyAccessToken;
+        earlyAccessToken = _earlyAccessTokenAddress;
+
+        emit SetEarlyAccessToken(msg.sender, oldEarlyAccessToken, earlyAccessToken);
     }
 }

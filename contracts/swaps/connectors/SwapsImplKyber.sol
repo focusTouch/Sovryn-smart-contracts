@@ -12,7 +12,7 @@ import "../ISwapsImpl.sol";
 
 
 contract SwapsImplKyber is State, ISwapsImpl {
-    using SafeERC20 for IERC20;
+    using SafeERC20 for IERC20Sovryn;
 
     address internal constant feeWallet = 0x13ddAC8d492E463073934E2a101e419481970299;
 
@@ -46,15 +46,15 @@ contract SwapsImplKyber is State, ISwapsImpl {
 
         if (txnData.length != 0) {
             // re-up the Kyber spend approval if needed
-            uint256 tempAllowance = IERC20(sourceTokenAddress).allowance(address(this), kyberContract);
+            uint256 tempAllowance = IERC20Sovryn(sourceTokenAddress).allowance(address(this), kyberContract);
             if (tempAllowance < maxSourceTokenAmount) {
-                IERC20(sourceTokenAddress).safeApprove(
+                IERC20Sovryn(sourceTokenAddress).safeApprove(
                     kyberContract,
                     uint256(-1)
                 );
             }
 
-            uint256 sourceBalanceBefore = IERC20(sourceTokenAddress).balanceOf(address(this));
+            uint256 sourceBalanceBefore = IERC20Sovryn(sourceTokenAddress).balanceOf(address(this));
 
             /* the following code is to allow the Kyber trade to fail silently and not revert if it does, preventing a "bubble up" */
             (bool success, bytes memory returnData) = kyberContract.call.gas(gasleft())(txnData);
@@ -63,7 +63,7 @@ contract SwapsImplKyber is State, ISwapsImpl {
             assembly {
                 destTokenAmountReceived := mload(add(returnData, 32))
             }
-            sourceTokenAmountUsed = sourceBalanceBefore.sub(IERC20(sourceTokenAddress).balanceOf(address(this)));
+            sourceTokenAmountUsed = sourceBalanceBefore.sub(IERC20Sovryn(sourceTokenAddress).balanceOf(address(this)));
 
         } else {
             revert("kyber payload error");
@@ -72,7 +72,7 @@ contract SwapsImplKyber is State, ISwapsImpl {
         if (returnToSenderAddress != address(this)) {
             if (sourceTokenAmountUsed < maxSourceTokenAmount) {
                 // send unused source token back
-                IERC20(sourceTokenAddress).safeTransfer(
+                IERC20Sovryn(sourceTokenAddress).safeTransfer(
                     returnToSenderAddress,
                     maxSourceTokenAmount-sourceTokenAmountUsed
                 );

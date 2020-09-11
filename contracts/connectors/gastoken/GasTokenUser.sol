@@ -6,7 +6,7 @@
 pragma solidity 0.5.17;
 
 import "../../openzeppelin/Ownable.sol";
-import "../../openzeppelin/SafeMath.sol";
+import "../../openzeppelin/SafeMathSovryn.sol";
 
 
 contract IChiToken {
@@ -15,7 +15,7 @@ contract IChiToken {
 }
 
 contract GasTokenUser is Ownable {
-    using SafeMath for uint256;
+    using SafeMathSovryn for uint256;
 
     IChiToken constant public gasToken = IChiToken(0x0000000000004946c0e9F43F4Dee607b0eF1fA1c);
     address constant public tokenHolder = 0x7E2Afb9224526fD9757e2A61DC07dDA61A41e3A6;
